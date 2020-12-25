@@ -27,6 +27,7 @@ import gfx from '../../renderer/gfx';
 
 /**
  * The class BufferRange denotes a range of the buffer.
+ * @class BufferRange
  */
 export let BufferRange = cc.Class({
     name: 'cc.BufferRange',
@@ -45,6 +46,9 @@ export let BufferRange = cc.Class({
     }
 });
 
+/**
+ * @class VertexFormat
+ */
 export let VertexFormat = cc.Class({
     name: 'cc.mesh.VertexFormat',
 
@@ -140,6 +144,12 @@ export function MeshData () {
     this.iDirty = false;
 
     this.enable = true;
+}
+
+MeshData.prototype.setVData = function (data) {
+    this.vData = data;
+    this.float32VData = null;
+    this.uint32VData = null;
 }
 
 MeshData.prototype.getVData = function (format) {

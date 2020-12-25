@@ -62,10 +62,12 @@ let LabelOutline = cc.Class({
         color: {
             tooltip: CC_DEV && 'i18n:COMPONENT.outline.color',
             get: function () {
-                return this._color;
+                return this._color.clone();
             },
             set: function (value) {
-                this._color = value;
+                if (!this._color.equals(value)) {
+                    this._color.set(value);
+                }
                 this._updateRenderData();
             }
         },

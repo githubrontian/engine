@@ -76,15 +76,15 @@ function setEnumAttr (obj, propName, enumDef) {
  * !#en
  * The Armature Display of DragonBones <br/>
  * <br/>
- * (Armature Display has a reference to a DragonBonesAsset and stores the state for ArmatureDisplay instance,
+ * Armature Display has a reference to a DragonBonesAsset and stores the state for ArmatureDisplay instance,
  * which consists of the current pose's bone SRT, slot colors, and which slot attachments are visible. <br/>
- * Multiple Armature Display can use the same DragonBonesAsset which includes all animations, skins, and attachments.) <br/>
+ * Multiple Armature Display can use the same DragonBonesAsset which includes all animations, skins, and attachments. <br/>
  * !#zh
  * DragonBones 骨骼动画 <br/>
  * <br/>
- * (Armature Display 具有对骨骼数据的引用并且存储了骨骼实例的状态，
+ * Armature Display 具有对骨骼数据的引用并且存储了骨骼实例的状态，
  * 它由当前的骨骼动作，slot 颜色，和可见的 slot attachments 组成。<br/>
- * 多个 Armature Display 可以使用相同的骨骼数据，其中包括所有的动画，皮肤和 attachments。)<br/>
+ * 多个 Armature Display 可以使用相同的骨骼数据，其中包括所有的动画，皮肤和 attachments。<br/>
  *
  * @class ArmatureDisplay
  * @extends RenderComponent
@@ -268,6 +268,7 @@ let ArmatureDisplay = cc.Class({
             type: DefaultAnimsEnum,
             visible: true,
             editorOnly: true,
+            animatable: false,
             displayName: 'Animation',
             tooltip: CC_DEV && 'i18n:COMPONENT.dragon_bones.animation_name'
         },
@@ -279,6 +280,13 @@ let ArmatureDisplay = cc.Class({
             default: 0,
             type: AnimationCacheMode,
             notify () {
+                if (this._defaultCacheMode !== AnimationCacheMode.REALTIME) {
+                    if (this._armature && !ArmatureCache.canCache(this._armature)) {
+                        this._defaultCacheMode = AnimationCacheMode.REALTIME;
+                        cc.warn("Animation cache mode doesn't support skeletal nesting");
+                        return;
+                    }
+                }
                 this.setAnimationCacheMode(this._defaultCacheMode);
             },
             editorOnly: true,
@@ -422,6 +430,17 @@ let ArmatureDisplay = cc.Class({
         if (baseMaterial) {
             baseMaterial.define('CC_USE_MODEL', !this.enableBatch);
             baseMaterial.define('USE_TEXTURE', true);
+            
+            let srcBlendFactor = this.premultipliedAlpha ? cc.gfx.BLEND_ONE : cc.gfx.BLEND_SRC_ALPHA;
+            let dstBlendFactor = cc.gfx.BLEND_ONE_MINUS_SRC_ALPHA;
+
+            baseMaterial.setBlend(
+                true,
+                cc.gfx.BLEND_FUNC_ADD,
+                srcBlendFactor, srcBlendFactor,
+                cc.gfx.BLEND_FUNC_ADD,
+                dstBlendFactor, dstBlendFactor
+            );
         }
         this._materialCache = {};
     },
@@ -507,6 +526,10 @@ let ArmatureDisplay = cc.Class({
         if (this._preCacheMode !== cacheMode) {
             this._cacheMode = cacheMode;
             this._buildArmature();
+
+            if (this._armature && !this.isAnimationCached()) {
+                this._factory._dragonBones.clock.add(this._armature);
+            }            
         }
     },
     
@@ -696,7 +719,7 @@ let ArmatureDisplay = cc.Class({
             this._armature = this._displayProxy._armature;
             this._armature.animation.timeScale = this.timeScale;
             // If change mode or armature, armature must insert into clock.
-            this._factory._dragonBones.clock.add(this._armature);
+            // this._factory._dragonBones.clock.add(this._armature);
         }
 
         if (this._cacheMode !== AnimationCacheMode.REALTIME && this.debugBones) {
@@ -739,7 +762,7 @@ let ArmatureDisplay = cc.Class({
     },
 
     _updateCacheModeEnum: CC_EDITOR && function () {
-        if (this._armature && ArmatureCache.canCache(this._armature)) {
+        if (this._armature) {
             setEnumAttr(this, '_defaultCacheMode', AnimationCacheMode);
         } else {
             setEnumAttr(this, '_defaultCacheMode', DefaultCacheMode);

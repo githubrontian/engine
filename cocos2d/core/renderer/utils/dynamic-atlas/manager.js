@@ -26,16 +26,16 @@ function beforeSceneLoad () {
 let _enabled = false;
 
 /**
- * !#en Manager the dynamic atlas.
- * !#zh 管理动态图集。
+ * !#en Manage Dynamic Atlas Manager. Dynamic Atlas Manager is used for merging textures at runtime, see [Dynamic Atlas](https://docs.cocos.com/creator/manual/en/advanced-topics/dynamic-atlas.html) for details.
+ * !#zh 管理动态图集。动态图集用于在运行时对贴图进行合并，详见 [动态合图](https://docs.cocos.com/creator/manual/zh/advanced-topics/dynamic-atlas.html)。
  * @class DynamicAtlasManager
  */
 let dynamicAtlasManager = {
     Atlas: Atlas,
-    
+
     /**
-     * !#en Enabled or Disabled dynamic atlas.
-     * !#zh 开启或者关闭动态图集。
+     * !#en Enable or disable the dynamic atlas, see [Dynamic Atlas](https://docs.cocos.com/creator/manual/en/advanced-topics/dynamic-atlas.html) for details.
+     * !#zh 开启或者关闭动态图集，详见 [动态合图](https://docs.cocos.com/creator/manual/zh/advanced-topics/dynamic-atlas.html)。
      * @property enabled
      * @type {Boolean}
      */
@@ -67,6 +67,16 @@ let dynamicAtlasManager = {
     },
     set maxAtlasCount (value) {
         _maxAtlasCount = value;
+    },
+
+    /**
+     * !#en Get the current created atlas count.
+     * !#zh 获取当前已经创建的图集数量。
+     * @property atlasCount
+     * @type {Number}
+     */
+    get atlasCount () {
+        return _atlases.length;
     },
 
     /**
@@ -116,18 +126,18 @@ let dynamicAtlasManager = {
      * @type {Number}
      * @deprecated
      */
-    
+
     /**
      * !#en Append a sprite frame into the dynamic atlas.
      * !#zh 添加碎图进入动态图集。
      * @method insertSpriteFrame
-     * @param {SpriteFrame} spriteFrame 
+     * @param {SpriteFrame} spriteFrame
      */
     insertSpriteFrame (spriteFrame) {
         if (CC_EDITOR) return null;
         if (!_enabled || _atlasIndex === _maxAtlasCount ||
             !spriteFrame || spriteFrame._original) return null;
-        
+
         if (!spriteFrame._texture.packable) return null;
 
         let atlas = _atlases[_atlasIndex];
@@ -143,7 +153,7 @@ let dynamicAtlasManager = {
         return frame;
     },
 
-    /** 
+    /**
      * !#en Resets all dynamic atlas, and the existing ones will be destroyed.
      * !#zh 重置所有动态图集，已有的动态图集会被销毁。
      * @method reset
@@ -167,7 +177,7 @@ let dynamicAtlasManager = {
         if (texture) {
             for (let i = _atlases.length - 1; i >= 0; i--) {
                 _atlases[i].deleteInnerTexture(texture);
-                
+
                 if (_atlases[i].isEmpty()) {
                     _atlases[i].destroy();
                     _atlases.splice(i, 1);
@@ -182,8 +192,9 @@ let dynamicAtlasManager = {
      * !#zh 在当前场景中显示所有动态图集，可以用来查看当前的合图状态。
      * @method showDebug
      * @param {Boolean} show
+     * @return {Node}
      */
-    showDebug: CC_DEV && function (show) {
+    showDebug: CC_DEBUG && function (show) {
         if (show) {
             if (!_debugNode || !_debugNode.isValid) {
                 let width = cc.visibleRect.width;
@@ -215,17 +226,18 @@ let dynamicAtlasManager = {
 
                 for (let i = 0; i <= _atlasIndex; i++) {
                     let node = new cc.Node('ATLAS');
-                    
+
                     let texture = _atlases[i]._texture;
                     let spriteFrame = new cc.SpriteFrame();
                     spriteFrame.setTexture(_atlases[i]._texture);
 
-                    let sprite = node.addComponent(cc.Sprite)
+                    let sprite = node.addComponent(cc.Sprite);
                     sprite.spriteFrame = spriteFrame;
 
                     node.parent = content;
                 }
             }
+            return _debugNode;
         }
         else {
             if (_debugNode) {

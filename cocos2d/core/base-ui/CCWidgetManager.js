@@ -237,7 +237,7 @@ function visitNode (node) {
         }
         align(node, widget);
         if ((!CC_EDITOR || animationState.animatedSinceLastFrame) && widget.alignMode !== AlignMode.ALWAYS) {
-            widget.enabled = false;
+            widgetManager.remove(widget);
         }
         else {
             activeWidgets.push(widget);
@@ -320,7 +320,7 @@ function refreshScene () {
                             node.isChildOf(editingNode)
                         ) {
                             // widget contains in activeWidgets should aligned at least once
-                            widget.enabled = false;
+                            widgetManager.remove(widget);
                         }
                         else {
                             align(node, widget);
@@ -464,14 +464,9 @@ var widgetManager = cc._widgetManager = module.exports = {
             cc.engine.on('design-resolution-changed', this.onResized.bind(this));
         }
         else {
-            if (cc.sys.isMobile) {
-                let thisOnResized = this.onResized.bind(this);
-                window.addEventListener('resize', thisOnResized);
-                window.addEventListener('orientationchange', thisOnResized);
-            }
-            else {
-                cc.view.on('canvas-resize', this.onResized, this);
-            }
+            let thisOnResized = this.onResized.bind(this);
+            cc.view.on('canvas-resize', thisOnResized);
+            window.addEventListener('orientationchange', thisOnResized);
         }
     },
     add: function (widget) {
@@ -498,10 +493,8 @@ var widgetManager = cc._widgetManager = module.exports = {
     },
     refreshWidgetOnResized (node) {
         var widget = cc.Node.isNode(node) && node.getComponent(cc.Widget);
-        if (widget) {
-            if (widget.alignMode === AlignMode.ON_WINDOW_RESIZE) {
-                widget.enabled = true;
-            }
+        if (widget && widget.enabled && widget.alignMode === AlignMode.ON_WINDOW_RESIZE) {
+            this.add(widget);
         }
 
         var children = node._children;

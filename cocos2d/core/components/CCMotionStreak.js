@@ -25,8 +25,6 @@
  ****************************************************************************/
 
 const RenderComponent = require('../components/CCRenderComponent');
-const Material = require('../assets/material/CCMaterial');
-const textureUtil = require('../utils/texture-util');
 const BlendFunc = require('../../core/utils/blend-func');
 
 /**
@@ -181,10 +179,12 @@ var MotionStreak = cc.Class({
         _color: cc.Color.WHITE,
         color: {
             get () {
-                return this._color;
+                return this._color.clone();
             },
             set (value) {
-                this._color = value;
+                if (!this._color.equals(value)) {
+                    this._color.set(value);
+                }
             },
             type: cc.Color,
             tooltip: CC_DEV && 'i18n:COMPONENT.motionStreak.color'
@@ -218,7 +218,7 @@ var MotionStreak = cc.Class({
     },
 
     _updateMaterial () {
-        let material = this._materials[0];
+        let material = this.getMaterial(0);
         material && material.setProperty('texture', this._texture);
 
         BlendFunc.prototype._updateMaterial.call(this);
@@ -252,7 +252,7 @@ var MotionStreak = cc.Class({
         }
     },
 
-    update (dt) {
+    lateUpdate (dt) {
         this._assembler && this._assembler.update(this, dt);
     }
 });

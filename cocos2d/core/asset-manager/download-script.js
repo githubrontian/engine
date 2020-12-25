@@ -25,8 +25,15 @@
  ****************************************************************************/
 const { parseParameters } = require('./utilities');
 
+const downloaded = {};
+
 function downloadScript (url, options, onComplete) {
     var { options, onComplete } = parseParameters(options, undefined, onComplete);
+
+    // no need to load script again
+    if (downloaded[url]) {
+        return onComplete && onComplete(null);
+    }
 
     var d = document, s = document.createElement('script');
 
@@ -34,12 +41,13 @@ function downloadScript (url, options, onComplete) {
         s.crossOrigin = 'anonymous';
     }
 
-    s.async = options.isAsync === undefined ? true : options.isAsync;
+    s.async = options.async;
     s.src = url;
     function loadHandler () {
         s.parentNode.removeChild(s);
         s.removeEventListener('load', loadHandler, false);
         s.removeEventListener('error', errorHandler, false);
+        downloaded[url] = true;
         onComplete && onComplete(null);
     }
 

@@ -27,7 +27,7 @@
  * @module cc.AssetManager
  */
 
-var MAX_DEAD_NUM = 50;
+var MAX_DEAD_NUM = 500;
 var _deadPool = [];
 
 /**
@@ -115,16 +115,6 @@ function RequestItem () {
      */
     this.info = null;
 
-    /**
-     * !#en
-     * The bundle of asset
-     * 
-     * !#zh
-     * 资源所在的 bundle
-     * 
-     * @property config
-     * @type {Config}
-     */
     this.config = null;
 
     /**
@@ -198,6 +188,7 @@ RequestItem.prototype = {
      * recycle(): void
      */
     recycle () {
+        if (_deadPool.length === MAX_DEAD_NUM) return;
         this._id = '';
         this.uuid = '';
         this.url = '';
@@ -208,7 +199,7 @@ RequestItem.prototype = {
         this.config = null;
         this.isNative = false;
         this.options = Object.create(null);
-        _deadPool.length < MAX_DEAD_NUM && _deadPool.push(this);
+        _deadPool.push(this);
     }
 };
 

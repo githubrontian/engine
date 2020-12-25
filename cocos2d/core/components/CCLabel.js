@@ -28,6 +28,8 @@ const macro = require('../platform/CCMacro');
 const RenderComponent = require('./CCRenderComponent');
 const Material = require('../assets/material/CCMaterial');
 const LabelFrame = require('../renderer/utils/label/label-frame');
+const BlendFunc = require('../utils/blend-func');
+const deleteFromDynamicAtlas = require('../renderer/utils/utils').deleteFromDynamicAtlas;
 
 /**
  * !#en Enum for text alignment.
@@ -165,6 +167,7 @@ const UNDERLINE_FLAG = 1 << 2;
 let Label = cc.Class({
     name: 'cc.Label',
     extends: RenderComponent,
+    mixins: [BlendFunc],
 
     ctor () {
         if (CC_EDITOR) {
@@ -193,8 +196,6 @@ let Label = cc.Class({
     },
 
     properties: {
-        _useOriginalSize: true,
-        
         /**
          * !#en Content string of label.
          * !#zh 标签显示的文本内容。
@@ -385,13 +386,9 @@ let Label = cc.Class({
                 if (value && this._isSystemFontUsed)
                     this._isSystemFontUsed = false;
 
-                if ( typeof value === 'string' ) {
-                    cc.warnID(4000);
-                }
+                if (!this.enabledInHierarchy) return;
 
-                this._resetAssembler();
-                this._applyFontTexture();
-                this.setVertsDirty();
+                this._forceUpdateRenderData();
             },
             type: cc.Font,
             tooltip: CC_DEV && 'i18n:COMPONENT.label.font',
@@ -423,9 +420,9 @@ let Label = cc.Class({
                 if (value) {
                     this.font = null;
 
-                    this._resetAssembler();
-                    this.setVertsDirty();
-                    this._applyFontTexture();
+                    if (!this.enabledInHierarchy) return;
+                    
+                    this._forceUpdateRenderData();
                 }
                 this.markForValidate();
             },
@@ -450,8 +447,8 @@ let Label = cc.Class({
         _spacingX: 0,
 
         /**
-         * !#en The spacing of the x axis between characters.
-         * !#zh 文字之间 x 轴的间距。
+         * !#en The spacing of the x axis between characters, only take Effect when using bitmap fonts.
+         * !#zh 文字之间 x 轴的间距，仅在使用位图字体时生效。
          * @property {Number} spacingX
          */
         spacingX: {
@@ -488,9 +485,9 @@ let Label = cc.Class({
                     this._ttfTexture = null;
                 }
 
-                this.setVertsDirty();
-                this._resetAssembler();
-                this._applyFontTexture();
+                if (!this.enabledInHierarchy) return;
+
+                this._forceUpdateRenderData();
             },
             animatable: false
         },
@@ -521,7 +518,7 @@ let Label = cc.Class({
 
         /**
          * !#en Whether enable italic.
-         * !#zh 是否启用黑体。
+         * !#zh 是否启用斜体。
          * @property {Boolean} enableItalic
          */
         enableItalic: {
@@ -622,6 +619,7 @@ let Label = cc.Class({
         // Keep track of Node size
         this.node.on(cc.Node.EventType.SIZE_CHANGED, this._nodeSizeChanged, this);
         this.node.on(cc.Node.EventType.ANCHOR_CHANGED, this.setVertsDirty, this);
+        this.node.on(cc.Node.EventType.COLOR_CHANGED, this._nodeColorChanged, this);
 
         this._forceUpdateRenderData();
     },
@@ -630,6 +628,7 @@ let Label = cc.Class({
         this._super();
         this.node.off(cc.Node.EventType.SIZE_CHANGED, this._nodeSizeChanged, this);
         this.node.off(cc.Node.EventType.ANCHOR_CHANGED, this.setVertsDirty, this);
+        this.node.off(cc.Node.EventType.COLOR_CHANGED, this._nodeColorChanged, this);
     },
 
     onDestroy () {
@@ -651,11 +650,26 @@ let Label = cc.Class({
         }
     },
 
-    _updateColor () {
+    _nodeColorChanged () {
         if (!(this.font instanceof cc.BitmapFont)) {
             this.setVertsDirty();
         }
-       RenderComponent.prototype._updateColor.call(this);
+    },
+
+    setVertsDirty() {
+        if(CC_JSB && this._nativeTTF()) {
+            this._assembler && this._assembler.updateRenderData(this)
+        }
+        this._super();
+    },
+
+    _updateColor () {
+        if (!(this.font instanceof cc.BitmapFont)) {
+            if (!(this._srcBlendFactor === cc.macro.BlendFactor.SRC_ALPHA && this.node._renderFlag & cc.RenderFlow.FLAG_OPACITY)) {
+                this.setVertsDirty();
+            }
+        }
+        RenderComponent.prototype._updateColor.call(this);
     },
 
     _validateRender () {
@@ -683,8 +697,15 @@ let Label = cc.Class({
     },
 
     _resetAssembler () {
-        this._frame = null;
+        this._resetFrame();
         RenderComponent.prototype._resetAssembler.call(this);
+    },
+
+    _resetFrame () {
+        if (this._frame && !(this.font instanceof cc.BitmapFont)) {
+            deleteFromDynamicAtlas(this, this._frame);
+            this._frame = null;
+        }
     },
 
     _checkStringEmpty () {
@@ -703,6 +724,12 @@ let Label = cc.Class({
         this._assembler && this._assembler.updateRenderData(this);
     },
 
+    _onBlendChanged () {
+        if (!this.useSystemFont || !this.enabledInHierarchy) return;
+          
+        this._forceUpdateRenderData();
+    },
+
     _applyFontTexture () {
         let font = this.font;
         if (font instanceof cc.BitmapFont) {
@@ -713,25 +740,29 @@ let Label = cc.Class({
             }
         }
         else {
-            if (!this._frame) {
-                this._frame = new LabelFrame();
-            }
- 
-            if (this.cacheMode === CacheMode.CHAR) {
-                this._letterTexture = this._assembler._getAssemblerData();
-                this._frame._refreshTexture(this._letterTexture);
-            } else if (!this._ttfTexture) {
-                this._ttfTexture = new cc.Texture2D();
-                this._assemblerData = this._assembler._getAssemblerData();
-                this._ttfTexture.initWithElement(this._assemblerData.canvas);
-            } 
+            if(!this._nativeTTF()){
+                if (!this._frame) {
+                    this._frame = new LabelFrame();
+                }
+    
+                if (this.cacheMode === CacheMode.CHAR) {
+                    this._letterTexture = this._assembler._getAssemblerData();
+                    this._frame._refreshTexture(this._letterTexture);
+                } else if (!this._ttfTexture) {
+                    this._ttfTexture = new cc.Texture2D();
+                    this._assemblerData = this._assembler._getAssemblerData();
+                    this._ttfTexture.initWithElement(this._assemblerData.canvas);
+                } 
 
-            if (this.cacheMode !== CacheMode.CHAR) {
-                this._frame._resetDynamicAtlasFrame();
-                this._frame._refreshTexture(this._ttfTexture);
+                if (this.cacheMode !== CacheMode.CHAR) {
+                    this._frame._resetDynamicAtlasFrame();
+                    this._frame._refreshTexture(this._ttfTexture);
+                    if (this._srcBlendFactor === cc.macro.BlendFactor.ONE && !CC_NATIVERENDERER) {
+                        this._ttfTexture.setPremultiplyAlpha(true);
+                    }
+                }
+                this._updateMaterial();
             }
-            
-            this._updateMaterial();
             this._assembler && this._assembler.updateRenderData(this);
         }
         this.markForValidate();
@@ -743,9 +774,27 @@ let Label = cc.Class({
     },
 
     _updateMaterialWebgl () {
+
+        let material = this.getMaterial(0);
+        if(this._nativeTTF()) {
+            if(material) this._assembler._updateTTFMaterial(this)
+            return;
+        }
+
         if (!this._frame) return;
-        let material = this._materials[0];
         material && material.setProperty('texture', this._frame._texture);
+
+        BlendFunc.prototype._updateMaterial.call(this);
+    },
+
+    _forceUseCanvas: false,
+ 
+    _useNativeTTF() {
+        return cc.macro.ENABLE_NATIVE_TTF_RENDERER && !this._forceUseCanvas;
+    }, 
+
+    _nativeTTF() {
+        return this._useNativeTTF() && !!this._assembler && !!this._assembler._updateTTFMaterial;
     },
 
     _forceUpdateRenderData () {

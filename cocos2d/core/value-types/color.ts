@@ -28,8 +28,6 @@ import ValueType from './value-type';
 import CCClass from '../platform/CCClass';
 import misc from '../utils/misc';
 
-import { IColorLike } from './math';
-
 /**
  * !#en
  * Representation of RGBA colors.
@@ -161,7 +159,7 @@ export default class Color extends ValueType {
      * Copy content of a color into another.
      * @method copy
      * @typescript
-     * static copy (out: Color, a: Color): Color
+     * copy (out: Color, a: Color): Color
      * @static
      */
     static copy (out: Color, a: Color): Color {
@@ -176,7 +174,7 @@ export default class Color extends ValueType {
      * Clone a new color.
      * @method clone
      * @typescript
-     * static clone (a: Color): Color
+     * clone (a: Color): Color
      * @static
      */
     static clone (a: Color): Color {
@@ -187,7 +185,7 @@ export default class Color extends ValueType {
      * Set the components of a color to the given values.
      * @method set
      * @typescript
-     * static set (out: Color, r = 255, g = 255, b = 255, a = 255): Color
+     * set (out: Color, r?: number, g?: number, b?: number, a?: number): Color
      * @static
      */
     static set (out: Color, r = 255, g = 255, b = 255, a = 255): Color {
@@ -202,8 +200,9 @@ export default class Color extends ValueType {
      * Converts the hexadecimal formal color into rgb formal.
      * @method fromHex
      * @typescript
-     * static fromHex (out: Color, hex: number): Color
+     * fromHex (out: Color, hex: number): Color
      * @static
+     * @deprecated
      */
     static fromHex (out: Color, hex: number): Color {
         let r = ((hex >> 24)) / 255.0;
@@ -219,10 +218,27 @@ export default class Color extends ValueType {
     }
 
     /**
+     * Converts the hexadecimal formal color into rgb formal.
+     * @method fromHEX
+     * @typescript
+     * fromHEX (out: Color, hex: string): Color
+     * @static
+     */
+    static fromHEX (out: Color, hexString: string): Color {
+        hexString = (hexString.indexOf('#') === 0) ? hexString.substring(1) : hexString;
+        out.r = parseInt(hexString.substr(0, 2), 16) || 0;
+        out.g = parseInt(hexString.substr(2, 2), 16) || 0;
+        out.b = parseInt(hexString.substr(4, 2), 16) || 0;
+        out.a = parseInt(hexString.substr(6, 2), 16) || 255;
+        out._val = ((out.a << 24) >>> 0) + (out.b << 16) + (out.g << 8) + out.r;
+        return out;
+    }
+
+    /**
      * Add components of two colors, respectively.
      * @method add
      * @typescript
-     * static add (out: Color, a: Color, b: Color): Color
+     * add (out: Color, a: Color, b: Color): Color
      * @static
      */
     static add (out: Color, a: Color, b: Color): Color {
@@ -237,7 +253,7 @@ export default class Color extends ValueType {
      * Subtract components of color b from components of color a, respectively.
      * @method subtract
      * @typescript
-     * static subtract (out: Color, a: Color, b: Color): Color
+     * subtract (out: Color, a: Color, b: Color): Color
      * @static
      */
     static subtract (out: Color, a: Color, b: Color): Color {
@@ -252,7 +268,7 @@ export default class Color extends ValueType {
      * Multiply components of two colors, respectively.
      * @method multiply
      * @typescript
-     * static multiply (out: Color, a: Color, b: Color): Color
+     * multiply (out: Color, a: Color, b: Color): Color
      * @static
      */
     static multiply (out: Color, a: Color, b: Color): Color {
@@ -267,7 +283,7 @@ export default class Color extends ValueType {
      * Divide components of color a by components of color b, respectively.
      * @method divide
      * @typescript
-     * static divide (out: Color, a: Color, b: Color): Color
+     * divide (out: Color, a: Color, b: Color): Color
      * @static
      */
     static divide (out: Color, a: Color, b: Color): Color {
@@ -282,7 +298,7 @@ export default class Color extends ValueType {
      * Scales a color by a number.
      * @method scale
      * @typescript
-     * static scale (out: Color, a: Color, b: number): Color
+     * scale (out: Color, a: Color, b: number): Color
      * @static
      */
     static scale (out: Color, a: Color, b: number): Color {
@@ -297,7 +313,7 @@ export default class Color extends ValueType {
      * Performs a linear interpolation between two colors.
      * @method lerp
      * @typescript
-     * static lerp (out: Color, a: Color, b: Color, t: number): Color
+     * lerp (out: Color, a: Color, b: Color, t: number): Color
      * @static
      */
     static lerp (out: Color, a: Color, b: Color, t: number): Color {
@@ -317,7 +333,7 @@ export default class Color extends ValueType {
      * !#en Turn an array of colors
      * @method toArray
      * @typescript
-     * static toArray <Out extends IWritableArrayLike<number>> (out: Out, a: IColorLike, ofs = 0)
+     * toArray <Out extends IWritableArrayLike<number>> (out: Out, a: IColorLike, ofs?: number): Out
      * @param ofs 数组起始偏移量
      * @static
      */
@@ -335,7 +351,7 @@ export default class Color extends ValueType {
      * !#en An array of colors turn
      * @method fromArray
      * @typescript
-     * static fromArray <Out extends IColorLike> (arr: IWritableArrayLike<number>, out: Out, ofs = 0)
+     * fromArray <Out extends IColorLike> (arr: IWritableArrayLike<number>, out: Out, ofs?: number): Out
      * @param ofs 数组起始偏移量
      * @static
      */
@@ -344,6 +360,27 @@ export default class Color extends ValueType {
         out.g = arr[ofs + 1] * 255;
         out.b = arr[ofs + 2] * 255;
         out.a = arr[ofs + 3] * 255;
+        return out;
+    }
+
+    /**
+     * !#zh 颜色 RGB 预乘 Alpha 通道
+     * !#en RGB premultiply alpha channel
+     * @method premultiplyAlpha
+     * @typescript
+     * premultiplyAlpha <Out extends IColorLike> (out: Out, a: IColorLike)
+     * @param out 返回颜色
+     * @param color 预乘处理的目标颜色
+     * @static
+     */
+    static premultiplyAlpha (out, color) {
+        let alpha = color.a / 255.0;
+        out.r = color.r * alpha;
+        out.g = color.g * alpha;
+        out.b = color.b * alpha;
+
+        out._fastSetA(color.a);
+
         return out;
     }
 
@@ -365,7 +402,7 @@ export default class Color extends ValueType {
             r = r.r;
         }
 
-        this._val = ((a << 24) >>> 0) + (b << 16) + (g << 8) + r;
+        this._val = ((a << 24) >>> 0) + (b << 16) + (g << 8) + (r|0);
     }
 
     /**
@@ -589,24 +626,30 @@ export default class Color extends ValueType {
      * !#en Convert color to css format.
      * !#zh 转换为 CSS 格式。
      * @method toCSS
-     * @param {String} opt - "rgba", "rgb", "#rgb" or "#rrggbb".
+     * @param {String} [opt="rgba"] - "rgba", "rgb", "#rgb" or "#rrggbb".
      * @return {String}
-     * @example {@link cocos2d/core/value-types/CCColor/toCSS.js}
+     * @example
+     * var color = cc.Color.BLACK;
+     * color.toCSS();          // "rgba(0,0,0,1.00)";
+     * color.toCSS("rgba");    // "rgba(0,0,0,1.00)";
+     * color.toCSS("rgb");     // "rgba(0,0,0)";
+     * color.toCSS("#rgb");    // "#000";
+     * color.toCSS("#rrggbb"); // "#000000";
      */
     toCSS (opt: string): string {
-        if (opt === 'rgba') {
+        if (!opt || opt === 'rgba') {
             return "rgba(" +
-                (this.r | 0) + "," +
-                (this.g | 0) + "," +
-                (this.b | 0) + "," +
+                this.r + "," +
+                this.g + "," +
+                this.b + "," +
                 (this.a / 255).toFixed(2) + ")"
                 ;
         }
         else if (opt === 'rgb') {
             return "rgb(" +
-                (this.r | 0) + "," +
-                (this.g | 0) + "," +
-                (this.b | 0) + ")"
+                this.r + "," +
+                this.g + "," +
+                this.b + ")"
                 ;
         }
         else {
@@ -637,10 +680,9 @@ export default class Color extends ValueType {
 
     /**
      * !#en convert Color to HEX color string.
-     * e.g.  cc.color(255,6,255)  to : "#ff06ff"
      * !#zh 转换为 16 进制。
      * @method toHEX
-     * @param {String} fmt - "#rgb", "#rrggbb" or "#rrggbbaa".
+     * @param {String} [fmt="#rrggbb"] - "#rgb", "#rrggbb" or "#rrggbbaa".
      * @return {String}
      * @example
      * var color = cc.Color.BLACK;
@@ -648,29 +690,20 @@ export default class Color extends ValueType {
      * color.toHEX("#rrggbb");  // "000000";
      */
     toHEX (fmt): string {
-        let prefix = '0';
+        const prefix = '0';
+        // #rrggbb
         let hex = [
-            (this.r < 16 ? prefix : '') + (this.r | 0).toString(16),
-            (this.g < 16 ? prefix : '') + (this.g | 0).toString(16),
-            (this.b < 16 ? prefix : '') + (this.b | 0).toString(16),
+            (this.r < 16 ? prefix : '') + (this.r).toString(16),
+            (this.g < 16 ? prefix : '') + (this.g).toString(16),
+            (this.b < 16 ? prefix : '') + (this.b).toString(16),
         ];
-        var i = -1;
         if (fmt === '#rgb') {
-            for (i = 0; i < hex.length; ++i) {
-                if (hex[i].length > 1) {
-                    hex[i] = hex[i][0];
-                }
-            }
-        }
-        else if (fmt === '#rrggbb') {
-            for (i = 0; i < hex.length; ++i) {
-                if (hex[i].length === 1) {
-                    hex[i] = '0' + hex[i];
-                }
-            }
+            hex[0] = hex[0][0];
+            hex[1] = hex[1][0];
+            hex[2] = hex[2][0];
         }
         else if (fmt === '#rrggbbaa') {
-            hex.push((this.a < 16 ? prefix : '') + (this.a | 0).toString(16));
+            hex.push((this.a < 16 ? prefix : '') + (this.a).toString(16));
         }
         return hex.join('');
     };
@@ -713,8 +746,6 @@ export default class Color extends ValueType {
             else {
                 if (h === 1) h = 0;
                 h *= 6;
-                s = s;
-                v = v;
                 var i = Math.floor(h);
                 var f = h - i;
                 var p = v * (1 - s);
@@ -762,7 +793,7 @@ export default class Color extends ValueType {
         r *= 255;
         g *= 255;
         b *= 255;
-        this._val = ((this.a << 24) >>> 0) + (b << 16) + (g << 8) + r;
+        this._val = ((this.a << 24) >>> 0) + (b << 16) + (g << 8) + (r|0);
         return this;
     }
 
@@ -803,7 +834,7 @@ export default class Color extends ValueType {
      * @method set
      * @typescript
      * set (color: Color): Color
-     * @param {Color} color 
+     * @param {Color} color
      */
     set (color: Color): this {
         if (color._val) {

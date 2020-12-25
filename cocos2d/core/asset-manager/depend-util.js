@@ -23,7 +23,10 @@
  THE SOFTWARE.
  ****************************************************************************/
 const Cache = require('./cache');
-const js = require('../platform/js');
+const deserialize = require('./deserialize');
+const { files, parsed } = require('./shared');
+import { hasNativeDep , getDependUuidList } from '../platform/deserialize-compiled';
+import deserializeForCompiled from '../platform/deserialize-compiled';
 
 /**
  * @module cc.AssetManager
@@ -40,18 +43,6 @@ const js = require('../platform/js');
 var dependUtil = {
     _depends: new Cache(),
 
-    /**
-     * !#en
-     * Initialize
-     * 
-     * !#zh
-     * 初始化
-     * 
-     * @method init
-     * 
-     * @typescript
-     * init(): void
-     */
     init () {
         this._depends.clear();
     },
@@ -74,7 +65,8 @@ var dependUtil = {
      * getNativeDep(uuid: string): Record<string, any>
      */
     getNativeDep (uuid) {
-        if (this._depends.has(uuid)) return this._depends.get(uuid).nativeDep;
+        let depend = this._depends.get(uuid);
+        if (depend) return depend.nativeDep && Object.assign({}, depend.nativeDep);
         return null;
     },
 
@@ -139,22 +131,6 @@ var dependUtil = {
         }
     },
 
-    /**
-     * !#en
-     * Remove dependency list from cache
-     * 
-     * !#zh
-     * 移除缓存中的依赖列表
-     * 
-     * @method remove
-     * @param {string} uuid - The asset's uuid
-     * 
-     * @example
-     * dependUtil.remove('fcmR3XADNLgJ1ByKhqcC5Z');
-     * 
-     * @typescript
-     * remove(uuid: string): void;
-     */
     remove (uuid) {
         this._depends.remove(uuid);
     },
@@ -179,44 +155,91 @@ var dependUtil = {
      * parse(uuid: string, json: any): { deps?: string[], nativeDep?: any }
      */
     parse (uuid, json) {
-        if (!CC_EDITOR && this._depends.has(uuid)) return this._depends.get(uuid);
-        
-        var out = Object.create(null);
-        var type = json.__type__;
+        var out = null;
+        if (Array.isArray(json) || json.__type__) {
 
-        // scene or prefab
-        if (Array.isArray(json)) {
-            out.deps = cc.Asset._parseDepsFromJson(json);
-            out.asyncLoadAssets = json[0].asyncLoadAssets;
-        }
-        // get deps from json
-        else if (type) {
-            var ctor = js._getClassById(type);
-            out.preventPreloadNativeObject = ctor.preventPreloadNativeObject;
-            out.preventDeferredLoadDependents = ctor.preventDeferredLoadDependents;
-            out.deps = ctor._parseDepsFromJson(json);
-            out.nativeDep = ctor._parseNativeDepFromJson(json);
-            out.nativeDep && (out.nativeDep.uuid = uuid);
+            if (out = this._depends.get(uuid)) return out;
+
+            if (Array.isArray(json) && (!(CC_BUILD || deserializeForCompiled.isCompiledJson(json)) || !hasNativeDep(json))) {
+                out = {
+                    deps: this._parseDepsFromJson(json),
+                };
+            }
+            else {
+                try {
+                    var asset = deserialize(json);
+                    out = this._parseDepsFromAsset(asset);
+                    out.nativeDep && (out.nativeDep.uuid = uuid);
+                    parsed.add(uuid + '@import', asset);
+                }
+                catch (e) {
+                    files.remove(uuid + '@import');
+                    out = { deps: [] };
+                }
+            }
         }
         // get deps from an existing asset 
         else {
-            var asset = json;
-            out.deps = [];
-            out.preventPreloadNativeObject = asset.constructor.preventPreloadNativeObject;
-            out.preventDeferredLoadDependents = asset.constructor.preventDeferredLoadDependents;
-            let deps = asset.__depends__;
-            for (var i = 0, l = deps.length; i < l; i++) {
-                var dep = deps[i].uuid;
-                out.deps.push(dep);
-            }
-        
-            if (asset.__nativeDepend__) {
-                out.nativeDep = asset._nativeDep;
-            }
+            if (!CC_EDITOR && (out = this._depends.get(uuid)) && out.parsedFromExistAsset) return out;
+            out = this._parseDepsFromAsset(json);
         }
         // cache dependency list
         this._depends.add(uuid, out);
         return out;
+    },
+
+    _parseDepsFromAsset: function (asset) {
+        var out = {
+            deps: [],
+            parsedFromExistAsset: true,
+            preventPreloadNativeObject: asset.constructor.preventPreloadNativeObject,
+            preventDeferredLoadDependents: asset.constructor.preventDeferredLoadDependents
+        };
+        let deps = asset.__depends__;
+        for (var i = 0, l = deps.length; i < l; i++) {
+            var dep = deps[i].uuid;
+            out.deps.push(dep);
+        }
+    
+        if (asset.__nativeDepend__) {
+            out.nativeDep = asset._nativeDep;
+        }
+
+        return out;
+    },
+
+    _parseDepsFromJson: CC_EDITOR || CC_PREVIEW ? function (json) {
+
+        if (deserializeForCompiled.isCompiledJson(json)) {
+            let depends = getDependUuidList(json);
+            depends.forEach((uuid, index) => depends[index] = cc.assetManager.utils.decodeUuid(uuid));
+            return depends;
+        }
+            
+        var depends = [];
+        function parseDependRecursively (data, out) {
+            if (!data || typeof data !== 'object' || data.__id__) return;
+            var uuid = data.__uuid__;
+            if (Array.isArray(data)) {
+                for (let i = 0, l = data.length; i < l; i++) {
+                    parseDependRecursively(data[i], out);
+                }
+            }
+            else if (uuid) { 
+                out.push(cc.assetManager.utils.decodeUuid(uuid));
+            }
+            else {
+                for (var prop in data) {
+                    parseDependRecursively(data[prop], out);
+                }
+            }
+        }
+        parseDependRecursively(json, depends);
+        return depends;
+    } : function (json) {
+        let depends = getDependUuidList(json);
+        depends.forEach((uuid, index) => depends[index] = cc.assetManager.utils.decodeUuid(uuid));
+        return depends;
     }
 };
 

@@ -35,6 +35,7 @@ const js = require('../platform/js');
  * 用于缓存某些内容
  * 
  * @class Cache
+ * @typescript Cache<T = any>
  */
 function Cache (map) {
     if (map) {
@@ -60,7 +61,7 @@ Cache.prototype = {
      * @param {Object} [map] - An object used to initialize   
      * 
      * @typescript
-     * constructor(map?: Record<string, any>)
+     * constructor(map?: Record<string, T>)
      */
     constructor: Cache,
 
@@ -81,10 +82,10 @@ Cache.prototype = {
      * cache.add('test', null);
      * 
      * @typescript
-     * add(key: string, val: any): any
+     * add(key: string, val: T): T
      */
     add (key, val) {       
-        if (!this.has(key)) this._count++;
+        if (!(key in this._map)) this._count++;
         return this._map[key] = val;
     },
 
@@ -104,11 +105,10 @@ Cache.prototype = {
      * var test = cache.get('test');
      * 
      * @typescript
-     * get(key: string): any
+     * get(key: string): T
      */
     get (key) {
-        var entry = this._map[key];
-        return entry;
+        return this._map[key];
     },
 
     /**
@@ -149,7 +149,7 @@ Cache.prototype = {
      * var content = cache.remove('test');
      * 
      * @typescript
-     * remove(key: string): any
+     * remove(key: string): T
      */
     remove (key) {
         var out = this._map[key];
@@ -200,7 +200,7 @@ Cache.prototype = {
      * cache.forEach((val, key) => console.log(key));
      * 
      * @typescript
-     * forEach(func: (val: any, key: string) => void): void
+     * forEach(func: (val: T, key: string) => void): void
      */
     forEach (func) {
         for (var key in this._map) {
@@ -224,7 +224,7 @@ Cache.prototype = {
      * var val = cache.find((val, key) => key === 'test');
      * 
      * @typescript
-     * find(predicate: (val: any, key: string) => boolean): any
+     * find(predicate: (val: T, key: string) => boolean): T
      */
     find (predicate) {
         for (var key in this._map) {

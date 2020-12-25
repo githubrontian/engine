@@ -89,14 +89,14 @@ var __getListenerID = function (event) {
 
 /**
  * !#en
- * This class has been deprecated, please use cc.systemEvent or cc.EventTarget instead. See [Listen to and launch events](../../../manual/en/scripting/events.md) for details.<br>
+ * This class has been deprecated, please use cc.systemEvent or cc.EventTarget instead. See [Listen to and launch events](../../../manual/en/scripting/events.html) for details.<br>
  * <br>
  * cc.eventManager is a singleton object which manages event listener subscriptions and event dispatching.
  * The EventListener list is managed in such way so that event listeners can be added and removed
  * while events are being dispatched.
  *
  * !#zh
- * 该类已废弃，请使用 cc.systemEvent 或 cc.EventTarget 代替，详见 [监听和发射事件](../../../manual/zh/scripting/events.md)。<br>
+ * 该类已废弃，请使用 cc.systemEvent 或 cc.EventTarget 代替，详见 [监听和发射事件](../../../manual/zh/scripting/events.html)。<br>
  * <br>
  * 事件管理器，它主要管理事件监听器注册和派发系统事件。
  *
@@ -121,6 +121,7 @@ var eventManager = {
     _inDispatch: 0,
     _isEnabled: false,
     _currentTouch: null,
+    _currentTouchListener: null,
 
     _internalCustomListenerIDs:[],
 
@@ -490,13 +491,17 @@ var eventManager = {
         var getCode = event.getEventCode(), EventTouch = cc.Event.EventTouch;
         if (getCode === EventTouch.BEGAN) {
             if (!cc.macro.ENABLE_MULTI_TOUCH && eventManager._currentTouch) {
-                return false;
+                let node = eventManager._currentTouchListener._node;
+                if (node && node.activeInHierarchy) {
+                    return false;
+                }
             }
 
             if (listener.onTouchBegan) {
                 isClaimed = listener.onTouchBegan(selTouch, event);
                 if (isClaimed && listener._registered) {
                     listener._claimedTouches.push(selTouch);
+                    eventManager._currentTouchListener = listener;
                     eventManager._currentTouch = selTouch;
                 }
             }
@@ -515,13 +520,13 @@ var eventManager = {
                     listener.onTouchEnded(selTouch, event);
                 if (listener._registered)
                     listener._claimedTouches.splice(removedIdx, 1);
-                eventManager._currentTouch = null;
-            } else if (getCode === EventTouch.CANCELLED) {
+                eventManager._clearCurTouch();
+            } else if (getCode === EventTouch.CANCELED) {
                 if (listener.onTouchCancelled)
                     listener.onTouchCancelled(selTouch, event);
                 if (listener._registered)
                     listener._claimedTouches.splice(removedIdx, 1);
-                eventManager._currentTouch = null;
+                eventManager._clearCurTouch();
             }
         }
 
@@ -588,7 +593,7 @@ var eventManager = {
             listener.onTouchesMoved(touches, event);
         else if (getCode === EventTouch.ENDED && listener.onTouchesEnded)
             listener.onTouchesEnded(touches, event);
-        else if (getCode === EventTouch.CANCELLED && listener.onTouchesCancelled)
+        else if (getCode === EventTouch.CANCELED && listener.onTouchesCancelled)
             listener.onTouchesCancelled(touches, event);
 
         // If the event was stopped, return directly.
@@ -806,6 +811,13 @@ var eventManager = {
                 }
             }
         }
+
+        this._currentTouchListener === listener && this._clearCurTouch();
+    },
+
+    _clearCurTouch () {
+        this._currentTouchListener = null;
+        this._currentTouch = null;
     },
 
     _removeListenerInCallback: function(listeners, callback){
@@ -1054,8 +1066,8 @@ var eventManager = {
 
 
 js.get(cc, 'eventManager', function () {
-    cc.warnID(1405, 'cc.eventManager', 'cc.EventTarget or cc.systemEvent');
+    cc.errorID(1405, 'cc.eventManager', 'cc.EventTarget or cc.systemEvent');
     return eventManager;
 });
 
-module.exports = eventManager;
+module.exports = cc.internal.eventManager = eventManager;

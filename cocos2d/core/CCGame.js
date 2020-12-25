@@ -89,7 +89,7 @@ var game = {
     EVENT_GAME_INITED: "game_inited",
 
     /**
-     * Event triggered after engine inited, at this point you will be able to use all engine classes. 
+     * Event triggered after engine inited, at this point you will be able to use all engine classes.
      * It was defined as EVENT_RENDERER_INITED in cocos creator v1.x and renamed in v2.0
      * @property EVENT_ENGINE_INITED
      * @constant
@@ -476,28 +476,9 @@ var game = {
             return;
         }
 
-        // Load game scripts
-        let jsList = this.config.jsList;
-        if (jsList && jsList.length > 0) {
-            var self = this;
-            var count = 0;
-            for (var i = 0, l = jsList.length; i < l; i++) {
-                cc.assetManager.loadScript(jsList[i], function (err) {
-                    if (err) throw new Error(JSON.stringify(err));
-                    count++;
-                    if (count === l) {
-                        self._loadPreviewScript(() => {
-                            self._prepareFinished(cb);
-                        });
-                    }
-                });
-            }
-        }
-        else {
-            this._loadPreviewScript(() => {
-                this._prepareFinished(cb);
-            })
-        }
+        this._loadPreviewScript(() => {
+            this._prepareFinished(cb);
+        });
     },
 
     /**
@@ -547,7 +528,7 @@ var game = {
             }
             this._persistRootNodes[id] = node;
             node._persistNode = true;
-            cc.assetManager.finalizer._addPersistNodeRef(node);
+            cc.assetManager._releaseManager._addPersistNodeRef(node);
         }
     },
 
@@ -562,7 +543,7 @@ var game = {
         if (node === this._persistRootNodes[id]) {
             delete this._persistRootNodes[id];
             node._persistNode = false;
-            cc.assetManager.finalizer._removePersistNodeRef(node);
+            cc.assetManager._releaseManager._removePersistNodeRef(node);
         }
     },
 
@@ -591,17 +572,19 @@ var game = {
             window.cancelAnimFrame = window.cancelAnimationFrame;
         }
         else {
+            let rAF = window.requestAnimationFrame = window.requestAnimationFrame ||
+            window.webkitRequestAnimationFrame ||
+            window.mozRequestAnimationFrame ||
+            window.oRequestAnimationFrame ||
+            window.msRequestAnimationFrame;
+
             if (frameRate !== 60 && frameRate !== 30) {
-                window.requestAnimFrame = this._stTime;
+                window.requestAnimFrame = rAF ? this._stTimeWithRAF : this._stTime;
                 window.cancelAnimFrame = this._ctTime;
             }
             else {
-                window.requestAnimFrame = window.requestAnimationFrame ||
-                window.webkitRequestAnimationFrame ||
-                window.mozRequestAnimationFrame ||
-                window.oRequestAnimationFrame ||
-                window.msRequestAnimationFrame ||
-                this._stTime;
+                window.requestAnimFrame = rAF || this._stTime;
+
                 window.cancelAnimFrame = window.cancelAnimationFrame ||
                 window.cancelRequestAnimationFrame ||
                 window.msCancelRequestAnimationFrame ||
@@ -616,6 +599,17 @@ var game = {
             }
         }
     },
+
+    _stTimeWithRAF: function(callback){
+        var currTime = performance.now();
+        var timeToCall = Math.max(0, game._frameTime - (currTime - game._lastTime));
+        var id = window.setTimeout(function() {
+                window.requestAnimationFrame(callback);
+            }, timeToCall);
+        game._lastTime = currTime + timeToCall;
+        return id;
+    },
+
     _stTime: function(callback){
         var currTime = performance.now();
         var timeToCall = Math.max(0, game._frameTime - (currTime - game._lastTime));
@@ -674,7 +668,7 @@ var game = {
             config.registerSystemEvent = true;
         }
         if (renderMode === 1) {
-            config.showFPS = false;    
+            config.showFPS = false;
         }
         else {
             config.showFPS = !!config.showFPS;
@@ -693,11 +687,11 @@ var game = {
     _determineRenderType () {
         let config = this.config,
             userRenderMode = parseInt(config.renderMode) || 0;
-    
+
         // Determine RenderType
         this.renderType = this.RENDER_TYPE_CANVAS;
         let supportRender = false;
-    
+
         if (userRenderMode === 0) {
             if (cc.sys.capabilities['opengl']) {
                 this.renderType = this.RENDER_TYPE_WEBGL;
@@ -716,7 +710,7 @@ var game = {
             this.renderType = this.RENDER_TYPE_WEBGL;
             supportRender = true;
         }
-    
+
         if (!supportRender) {
             throw new Error(debug.getError(3820, userRenderMode));
         }
@@ -789,7 +783,7 @@ var game = {
             };
             renderer.initWebGL(localCanvas, opts);
             this._renderContext = renderer.device._gl;
-            
+
             // Enable dynamic atlas manager by default
             if (!cc.macro.CLEANUP_IMAGE_CACHE && dynamicAtlasManager) {
                 dynamicAtlasManager.enabled = true;
@@ -814,7 +808,7 @@ var game = {
 
         // register system events
         if (this.config.registerSystemEvent)
-            _cc.inputManager.registerSystemEvent(this.canvas);
+            cc.internal.inputManager.registerSystemEvent(this.canvas);
 
         if (typeof document.hidden !== 'undefined') {
             hiddenPropName = "hidden";

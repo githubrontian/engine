@@ -57,20 +57,6 @@ if (cc.sys.os === cc.sys.OS_IOS) // All browsers are WebView
 
 switch (__BrowserGetter.adaptationType) {
     case cc.sys.BROWSER_TYPE_SAFARI:
-        __BrowserGetter.meta["minimal-ui"] = "true";
-        __BrowserGetter.availWidth = cc.sys.isMobile ? function (frame){
-            // bug fix for navigation bar on Safari
-            return window.innerWidth;
-        } : function (frame) {
-            return frame.clientWidth;
-        }
-        __BrowserGetter.availHeight = cc.sys.isMobile ? function (frame){
-            // bug fix for navigation bar on Safari
-            return window.innerHeight;
-        } : function (frame) {
-            return frame.clientHeight;
-        }
-        break;
     case cc.sys.BROWSER_TYPE_SOUGOU:
     case cc.sys.BROWSER_TYPE_UC:
         __BrowserGetter.meta["minimal-ui"] = "true";
@@ -180,6 +166,15 @@ cc.js.mixin(View.prototype, {
         } else {
             view = cc.view;
         }
+        // HACK: some browsers can't update window size immediately
+        // need to handle resize event callback on the next tick
+        let sys = cc.sys;
+        if (sys.browserType === sys.BROWSER_TYPE_UC && sys.os === sys.OS_IOS) {
+            setTimeout(function () {
+                view._resizeEvent(forceOrEvent);
+            }, 0)
+            return;
+        }
 
         // Check frame size changed or not
         var prevFrameW = view._frameSize.width, prevFrameH = view._frameSize.height, prevRotated = view._isRotated;
@@ -227,6 +222,11 @@ cc.js.mixin(View.prototype, {
         }
     },
 
+    _resize: function() {
+        //force resize when size is changed at native
+        cc.view._resizeEvent(CC_JSB);
+    },
+
     /**
      * !#en
      * Sets view's target-densitydpi for android mobile browser. it can be set to:           <br/>
@@ -265,14 +265,14 @@ cc.js.mixin(View.prototype, {
             //enable
             if (!this._resizeWithBrowserSize) {
                 this._resizeWithBrowserSize = true;
-                window.addEventListener('resize', this._resizeEvent);
+                window.addEventListener('resize', this._resize);
                 window.addEventListener('orientationchange', this._orientationChange);
             }
         } else {
             //disable
             if (this._resizeWithBrowserSize) {
                 this._resizeWithBrowserSize = false;
-                window.removeEventListener('resize', this._resizeEvent);
+                window.removeEventListener('resize', this._resize);
                 window.removeEventListener('orientationchange', this._orientationChange);
             }
         }
@@ -375,7 +375,7 @@ cc.js.mixin(View.prototype, {
             }
             else if (overwrite) {
                 pattern = new RegExp(key+"\s*=\s*[^,]+");
-                content.replace(pattern, key + "=" + metas[key]);
+                content = content.replace(pattern, key + "=" + metas[key]);
             }
         }
         if(/^,/.test(content))
@@ -453,7 +453,7 @@ cc.js.mixin(View.prototype, {
      * !#zh 控制抗锯齿是否开启
      * @method enableAntiAlias
      * @param {Boolean} enabled - Enable or not anti-alias
-     * @deprecated cc.view.enableAntiAlias is deprecated now, please use cc.Texture2D.setFilters instead
+     * @deprecated cc.view.enableAntiAlias is deprecated, please use cc.Texture2D.setFilters instead
      * @since v2.3.0
      */
     enableAntiAlias: function (enabled) {
@@ -465,7 +465,7 @@ cc.js.mixin(View.prototype, {
         if(cc.game.renderType === cc.game.RENDER_TYPE_WEBGL) {
             var cache = cc.assetManager.assets;
             cache.forEach(function (asset) {
-                if (asset instanceof cc.Texture2Dx) {
+                if (asset instanceof cc.Texture2D) {
                     var Filter = cc.Texture2D.Filter;
                     if (enabled) {
                         asset.setFilters(Filter.LINEAR, Filter.LINEAR);
@@ -706,8 +706,8 @@ cc.js.mixin(View.prototype, {
      */
     setDesignResolutionSize: function (width, height, resolutionPolicy) {
         // Defensive code
-        if( !(width > 0 || height > 0) ){
-            cc.logID(2200);
+        if( !(width > 0 && height > 0) ){
+            cc.errorID(2200);
             return;
         }
 
@@ -765,7 +765,7 @@ cc.js.mixin(View.prototype, {
         cc.visibleRect && cc.visibleRect.init(this._visibleRect);
 
         renderer.updateCameraViewport();
-        _cc.inputManager._updateCanvasBoundingRect();
+        cc.internal.inputManager._updateCanvasBoundingRect();
         this.emit('design-resolution-changed');
     },
 
@@ -1002,16 +1002,16 @@ cc.js.mixin(View.prototype, {
 });
 
 /**
- * !en
+ * !#en
  * Emit when design resolution changed.
- * !zh
+ * !#zh
  * 当设计分辨率改变时发送。
  * @event design-resolution-changed
  */
  /**
- * !en
+ * !#en
  * Emit when canvas resize.
- * !zh
+ * !#zh
  * 当画布大小改变时发送。
  * @event canvas-resize
  */

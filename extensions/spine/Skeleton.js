@@ -193,12 +193,19 @@ sp.Skeleton = cc.Class({
          */
         _defaultSkinIndex: {
             get () {
-                if (this.skeletonData && this.defaultSkin) {
+                if (this.skeletonData) {
                     var skinsEnum = this.skeletonData.getSkinsEnum();
-                    if (skinsEnum) {
-                        var skinIndex = skinsEnum[this.defaultSkin];
-                        if (skinIndex !== undefined) {
-                            return skinIndex;
+                    if(skinsEnum) {
+                        if(this.defaultSkin === "") {
+                            if(skinsEnum.hasOwnProperty(0)) {
+                                this._defaultSkinIndex = 0;
+                                return 0;
+                            }
+                        } else {
+                            var skinIndex = skinsEnum[this.defaultSkin];
+                            if (skinIndex !== undefined) {
+                                return skinIndex;
+                            }
                         }
                     }
                 }
@@ -227,6 +234,7 @@ sp.Skeleton = cc.Class({
             },
             type: DefaultSkinsEnum,
             visible: true,
+            animatable: false,
             displayName: "Default Skin",
             tooltip: CC_DEV && 'i18n:COMPONENT.skeleton.default_skin'
         },
@@ -269,6 +277,7 @@ sp.Skeleton = cc.Class({
             },
             type: DefaultAnimsEnum,
             visible: true,
+            animatable: false,
             displayName: 'Animation',
             tooltip: CC_DEV && 'i18n:COMPONENT.skeleton.animation'
         },
@@ -448,6 +457,17 @@ sp.Skeleton = cc.Class({
         if (baseMaterial) {
             baseMaterial.define('USE_TINT', useTint);
             baseMaterial.define('CC_USE_MODEL', !this.enableBatch);
+            
+            let srcBlendFactor = this.premultipliedAlpha ? cc.gfx.BLEND_ONE : cc.gfx.BLEND_SRC_ALPHA;
+            let dstBlendFactor = cc.gfx.BLEND_ONE_MINUS_SRC_ALPHA;
+
+            baseMaterial.setBlend(
+                true,
+                cc.gfx.BLEND_FUNC_ADD,
+                srcBlendFactor, srcBlendFactor,
+                cc.gfx.BLEND_FUNC_ADD,
+                dstBlendFactor, dstBlendFactor
+            );
         }
         this._materialCache = {};
     },

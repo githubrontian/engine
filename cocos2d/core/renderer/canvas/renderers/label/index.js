@@ -40,6 +40,9 @@ let canvasPool = {
                 canvas: canvas,
                 context: context
             }
+
+            // default text info
+            context.textBaseline = 'alphabetic';
         }
 
         return data;

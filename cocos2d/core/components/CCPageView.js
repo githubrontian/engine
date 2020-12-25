@@ -224,12 +224,9 @@ var PageView = cc.Class({
         EventType: EventType
     },
 
-    __preload: function () {
-        this.node.on(cc.Node.EventType.SIZE_CHANGED, this._updateAllPagesSize, this);
-    },
-
     onEnable: function () {
         this._super();
+        this.node.on(cc.Node.EventType.SIZE_CHANGED, this._updateAllPagesSize, this);
         if(!CC_EDITOR) {
             this.node.on('scroll-ended-with-threshold', this._dispatchPageTurningEvent, this);
         }
@@ -237,6 +234,7 @@ var PageView = cc.Class({
 
     onDisable: function () {
         this._super();
+        this.node.off(cc.Node.EventType.SIZE_CHANGED, this._updateAllPagesSize, this);
         if(!CC_EDITOR) {
             this.node.off('scroll-ended-with-threshold', this._dispatchPageTurningEvent, this);
         }
@@ -247,10 +245,6 @@ var PageView = cc.Class({
         if (this.indicator) {
             this.indicator.setPageView(this);
         }
-    },
-
-    onDestroy: function() {
-        this.node.off(cc.Node.EventType.SIZE_CHANGED, this._updateAllPagesSize, this);
     },
 
     /**
@@ -445,7 +439,7 @@ var PageView = cc.Class({
 
     // 刷新所有页面的大小
     _updateAllPagesSize: function () {
-        if (this.sizeMode !== SizeMode.Unified) {
+        if (this.sizeMode !== SizeMode.Unified || !this._view) {
             return;
         }
         var locPages = CC_EDITOR ? this.content.children : this._pages;
@@ -567,10 +561,10 @@ var PageView = cc.Class({
             let bounceBackAmount = this._getHowMuchOutOfBoundary();
             bounceBackAmount = this._clampDelta(bounceBackAmount);
             if (bounceBackAmount.x > 0 || bounceBackAmount.y < 0) {
-                this._curPageIdx = this._pages.length - 1
+                this._curPageIdx = this._pages.length === 0 ? 0 : this._pages.length - 1;
             }
             if (bounceBackAmount.x < 0 || bounceBackAmount.y > 0) {
-                this._curPageIdx = 0
+                this._curPageIdx = 0;
             }
 
             if (this.indicator) {

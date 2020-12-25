@@ -42,9 +42,9 @@ export class Physics3DManager {
 
     /**
      * !#en
-     * Gets or sets whether to enable physical systems, which are not enabled by default.
+     * Whether to enable the physics system, default is false.
      * !#zh
-     * 获取或设置是否启用物理系统，默认不启用。
+     * 是否启用物理系统，默认不启用。
      * @property {boolean} enabled
      */
     get enabled (): boolean {
@@ -56,9 +56,9 @@ export class Physics3DManager {
 
     /**
      * !#en
-     * Gets or sets whether the physical system allows automatic sleep, which defaults to true.
+     * Whether to allow the physics system to automatically hibernate, default is true.
      * !#zh
-     * 获取或设置物理系统是否允许自动休眠，默认为 true
+     * 物理系统是否允许自动休眠，默认为 true。
      * @property {boolean} allowSleep
      */
     get allowSleep (): boolean {
@@ -73,9 +73,9 @@ export class Physics3DManager {
 
     /**
      * !#en
-     * Gets or sets the maximum number of child steps per frame simulated.
+     * The maximum number of sub-steps a full step is permitted to be broken into, default is 2.
      * !#zh
-     * 获取或设置每帧模拟的最大子步数。
+     * 物理每帧模拟的最大子步数，默认为 2。
      * @property {number} maxSubStep
      */
     get maxSubStep (): number {
@@ -87,23 +87,23 @@ export class Physics3DManager {
 
     /**
      * !#en
-     * Gets or sets the fixed time consumed by each simulation step.
+     * Time spent in each simulation of physics, default is 1/60s.
      * !#zh
-     * 获取或设置每步模拟消耗的固定时间。
+     * 物理每步模拟消耗的固定时间，默认为 1/60 秒。
      * @property {number} deltaTime
      */
     get deltaTime (): number {
-        return this._deltaTime;
+        return this._fixedTime;
     }
     set deltaTime (value: number) {
-        this._deltaTime = value;
+        this._fixedTime = value;
     }
 
     /**
      * !#en
-     * Gets or sets whether to use a fixed time step.
+     * Whether to use a fixed time step.
      * !#zh
-     * 获取或设置是否使用固定的时间步长。
+     * 是否使用固定的时间步长。
      * @property {boolean} useFixedTime
      */
     get useFixedTime (): boolean {
@@ -115,9 +115,9 @@ export class Physics3DManager {
 
     /**
      * !#en
-     * Gets or sets the gravity value of the physical world, by default (0, -10, 0)
+     * Gravity value of the physics simulation, default is (0, -10, 0).
      * !#zh
-     * 获取或设置物理世界的重力数值，默认为 (0, -10, 0)
+     * 物理世界的重力数值，默认为 (0, -10, 0)。
      * @property {Vec3} gravity
      */
     get gravity (): cc.Vec3 {
@@ -132,9 +132,9 @@ export class Physics3DManager {
 
     /**
      * !#en
-     * Gets the global default physical material. Note that builtin is null
+     * Gets the global default physical material. Note that builtin is null.
      * !#zh
-     * 获取全局的默认物理材质，注意：builtin 时为 null
+     * 获取全局的默认物理材质，注意：builtin 时为 null。
      * @property {PhysicsMaterial | null} defaultMaterial
      * @readonly
      */
@@ -159,11 +159,24 @@ export class Physics3DManager {
     private _maxSubStep = 1;
 
     @property
-    private _deltaTime = 1.0 / 60.0;
+    private _fixedTime = 1.0 / 60.0;
 
     @property
     private _useFixedTime = true;
 
+    useAccumulator = false;
+    private _accumulator = 0;
+
+    useFixedDigit = false;
+    useInternalTime = false;
+
+    readonly fixDigits = {
+        position: 5,
+        rotation: 12,
+        timeNow: 3,
+    }
+    private _deltaTime = 0;
+    private _lastTime = 0;
     private readonly _material: cc.PhysicsMaterial | null = null;
 
     private readonly raycastOptions: IRaycastOptions = {
@@ -179,6 +192,7 @@ export class Physics3DManager {
     private constructor () {
         cc.director._scheduler && cc.director._scheduler.enableForTarget(this);
         this.physicsWorld = createPhysicsWorld();
+        this._lastTime = performance.now();
         if (!CC_PHYSICS_BUILTIN) {
             this.gravity = this._gravity;
             this.allowSleep = this._allowSleep;
@@ -206,12 +220,34 @@ export class Physics3DManager {
             return;
         }
 
+        if (this.useInternalTime) {
+            var now = parseFloat(performance.now().toFixed(this.fixDigits.timeNow));
+            this._deltaTime = now > this._lastTime ? (now - this._lastTime) / 1000 : 0;
+            this._lastTime = now;
+        } else {
+            this._deltaTime = deltaTime;
+        }
+
         cc.director.emit(cc.Director.EVENT_BEFORE_PHYSICS);
 
-        if (this._useFixedTime) {
-            this.physicsWorld.step(this._deltaTime);
+        if (CC_PHYSICS_BUILTIN) {
+            this.physicsWorld.step(this._fixedTime);
         } else {
-            this.physicsWorld.step(this._deltaTime, deltaTime, this._maxSubStep);
+            if (this._useFixedTime) {
+                this.physicsWorld.step(this._fixedTime);
+            } else {
+                if (this.useAccumulator) {
+                    let i = 0;
+                    this._accumulator += this._deltaTime;
+                    while (i < this._maxSubStep && this._accumulator > this._fixedTime) {
+                        this.physicsWorld.step(this._fixedTime);
+                        this._accumulator -= this._fixedTime;
+                        i++;
+                    }
+                } else {
+                    this.physicsWorld.step(this._fixedTime, this._deltaTime, this._maxSubStep);
+                }
+            }
         }
 
         cc.director.emit(cc.Director.EVENT_AFTER_PHYSICS);
@@ -227,7 +263,7 @@ export class Physics3DManager {
      * @param {boolean} queryTrigger Detect trigger or not
      * @return {PhysicsRayResult[] | null} Detected result
      */
-    raycast (worldRay: cc.geomUtils.Ray, groupIndexOrName: number|string = 0, maxDistance = Infinity, queryTrigger = true): PhysicsRayResult[] | null {
+    raycast (worldRay: cc.geomUtils.Ray, groupIndexOrName: number | string = 0, maxDistance = Infinity, queryTrigger = true): PhysicsRayResult[] | null {
         this.raycastResultPool.reset();
         this.raycastResults.length = 0;
         if (typeof groupIndexOrName == "string") {
@@ -254,7 +290,7 @@ export class Physics3DManager {
      * @param {boolean} queryTrigger Detect trigger or not
      * @return {PhysicsRayResult|null} Detected result
      */
-    raycastClosest (worldRay: cc.geomUtils.Ray, groupIndexOrName: number|string = 0, maxDistance = Infinity, queryTrigger = true): PhysicsRayResult|null {
+    raycastClosest (worldRay: cc.geomUtils.Ray, groupIndexOrName: number | string = 0, maxDistance = Infinity, queryTrigger = true): PhysicsRayResult | null {
         if (typeof groupIndexOrName == "string") {
             let groupIndex = cc.game.groupList.indexOf(groupIndexOrName);
             if (groupIndex == -1) groupIndex = 0;

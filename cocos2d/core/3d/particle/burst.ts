@@ -2,6 +2,11 @@ import { ccclass, property } from '../../platform/CCClassDecorator';
 import { repeat } from '../../value-types';
 import CurveRange from './animator/curve-range';
 
+/**
+ * !#en The burst of 3d particle.
+ * !#zh 3D 粒子发射时的爆发个数
+ * @class Burst
+ */
 @ccclass('cc.Burst')
 export default class Burst {
 
@@ -79,7 +84,7 @@ export default class Burst {
     _curTime = 0;
 
     constructor () {
-        this._remainingCount = 1;
+        this._remainingCount = 0;
         this._curTime = 0.0;
     }
 

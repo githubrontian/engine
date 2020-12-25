@@ -26,11 +26,6 @@
 
 const Texture2D = require('../assets/CCTexture2D');
 
-/**
- * cc.textureUtil is a singleton object, it can load cc.Texture2D asynchronously
- * @class textureUtil
- * @static
- */
 let textureUtil = {
     loadImage (url, cb, target) {
         cc.assertID(url, 3103);
@@ -50,12 +45,9 @@ let textureUtil = {
             }
         }
         else {
-            tex = new Texture2D();
-            tex._nativeUrl = url;
-            cc.assetManager.loadRemoteTexture(url, {texture: tex}, function (err, texture) {
+            cc.assetManager.loadRemote(url, function (err, texture) {
                 cb && cb.call(target, err, texture);
             });
-            return tex;
         }
     },
 
@@ -78,11 +70,8 @@ let textureUtil = {
             return;
         }
         // load image
-        cc.assetManager.loadNativeFile(texture, function (err, image) {
-            if (!err) texture._nativeAsset = image;
-            callback && callback(err);
-        });
+        cc.assetManager.postLoadNative(texture, callback);
     }
 };
 
-cc.textureUtil = module.exports = textureUtil;
+module.exports = textureUtil;

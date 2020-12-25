@@ -26,8 +26,8 @@ module.exports = {
             "toggleContainer": "https://docs.cocos.com/creator/manual/zh/components/toggleContainer.html",
             "slider": "https://docs.cocos.com/creator/manual/zh/components/slider.html",
             "block_input_events": "https://docs.cocos.com/creator/manual/zh/components/block-input-events.html",
-            "wx_subcontext_view": "https://docs.cocos.com/creator/manual/zh/publish/publish-wechatgame-sub-domain.html",
-            "swan_subcontext_view": "https://docs.cocos.com/creator/manual/zh/publish/publish-baidugame-sub-domain.html"
+            "subcontext_view": "https://docs.cocos.com/creator/manual/zh/publish/publish-wechatgame-sub-domain.html",
+            "safe_area": "https://docs.cocos.com/creator/manual/zh/components/safearea.html",
         },
         'animation': {
             'default_clip': '在勾选自动播放或调用 play() 时默认播放的动画 clip。',
@@ -436,10 +436,7 @@ module.exports = {
             'gid': '指定 TiledTile 的 gid 值',
             'layer': '指定 TiledTile 属于哪一个 TiledLayer'
         },
-        'wx_subcontext_view': {
-            'fps': '开放数据域的 FPS, 该属性会覆盖开放域的帧率设置',
-        },
-        'swan_subcontext_view': {
+        'subcontext_view': {
             'fps': '开放数据域的 FPS, 该属性会覆盖开放域的帧率设置',
         },
         'skeleton_animation': {
@@ -447,6 +444,9 @@ module.exports = {
         },
         'attach_util': {
             "generate_attached_node": "生成挂点"
+        },
+        'safe_area': {
+            'brief_help': "该组件会将所在节点的布局适配到 iPhone X 等异形屏手机的安全区域内，通常用于 UI 交互区域的顶层节点。该组件将在真机上将自动生效，在编辑器下没有效果。"
         }
     }
 };

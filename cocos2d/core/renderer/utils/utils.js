@@ -36,9 +36,8 @@ module.exports = {
                 if (comp.font._nativeAsset) {
                     return comp.font._nativeAsset;
                 }
-                cc.assetManager.loadNativeFile(comp.font, function (err, font) {
-                    comp.font._nativeAsset = font;
-                    comp.setVertsDirty();
+                cc.assetManager.postLoadNative(comp.font, function (err) {
+                    comp.isValid && comp.setVertsDirty();
                 });
                 return 'Arial';
             }

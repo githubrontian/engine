@@ -9,41 +9,84 @@ const Mode = Enum({
     Fixed: 1,
 });
 
+/**
+ * !#en The color key of gradient.
+ * !#zh color 关键帧
+ * @class ColorKey
+ */
 @ccclass('cc.ColorKey')
 export class ColorKey {
-
+    /**
+     * !#en Color value.
+     * !#zh 颜色值。
+     * @property {Color} color
+     */
     @property
     color = cc.Color.WHITE.clone();
-
+    /**
+     * !#en Time value.
+     * !#zh 时间值。
+     * @property {Number} time
+     */
     @property
     time = 0;
 }
 
+/**
+ * !#en The alpha key of gradient.
+ * !#zh alpha 关键帧
+ * @class AlphaKey
+ */
 @ccclass('cc.AlphaKey')
 export class AlphaKey {
-
+    /**
+     * !#en Alpha value.
+     * !#zh 透明度。
+     * @property {Number} alpha
+     */
     @property
     alpha = 1;
-
+    /**
+     * !#en Time.
+     * !#zh 时间帧。
+     * @property {Number} time
+     */
     @property
     time = 0;
 }
 
+/**
+ * !#en The gradient data of color.
+ * !#zh 颜色渐变数据
+ * @class Gradient
+ */
 @ccclass('cc.Gradient')
 export class Gradient {
 
     static Mode = Mode;
-
+    /**
+     * !#en Array of color key.
+     * !#zh 颜色关键帧列表。
+     * @property {[ColorKey]} colorKeys
+     */
     @property({
         type: [ColorKey],
     })
     colorKeys = new Array();
-
+    /**
+     * !#en Array of alpha key.
+     * !#zh 透明度关键帧列表。
+     * @property {[AlphaKey]} alphaKeys
+     */
     @property({
         type: [AlphaKey],
     })
     alphaKeys = new Array();
-
+    /**
+     * !#en Blend mode.
+     * !#zh 混合模式。
+     * @property {Mode} mode
+     */
     @property({
         type: Mode,
     })
